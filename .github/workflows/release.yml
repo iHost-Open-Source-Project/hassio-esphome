@@ -27,7 +27,7 @@ jobs:
 
   deploy-docker:
     name: Build ESPHome ${{ matrix.platform }}
-    if: github.repository == 'LonelystartO/esphome'
+    if: github.repository == 'iHost-Open-Source-Project/esphome'
     permissions:
       contents: read
       packages: write
@@ -86,7 +86,7 @@ jobs:
     needs:
       - init
       - deploy-docker
-    if: github.repository == 'LonelystartO/esphome'
+    if: github.repository == 'iHost-Open-Source-Project/esphome'
     permissions:
       contents: read
       packages: write
