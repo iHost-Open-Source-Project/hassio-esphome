@@ -24,26 +24,39 @@ ARG TARGETVARIANT
 # not a problem for us because we are not concerned about overwriting
 # system packages because we are running in an isolated container.
 
+# 安装构建依赖
 RUN \
-    apt-get update \
-    # Use pinned versions so that we get updates with build caching
-    && apt-get install -y --no-install-recommends \
-        python3-pip=23.0.1+dfsg-1 \
-        python3-setuptools=66.1.1-1+deb12u1 \
-        python3-venv=3.11.2-1+b1 \
-        python3-wheel=0.38.4-2 \
-        iputils-ping=3:20221126-1+deb12u1 \
-        git=1:2.39.5-0+deb12u2 \
-        curl=7.88.1-10+deb12u12 \
-        openssh-client=1:9.2p1-2+deb12u5 \
-        python3-cffi=1.15.1-5 \
-        libcairo2=1.16.0-7 \
-        libmagic1=1:5.44-3 \
-        patch=2.7.6-7 \
-    && rm -rf \
-        /tmp/* \
-        /var/{cache,log}/* \
-        /var/lib/apt/lists/*
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3-pip \
+        python3-setuptools \
+        python3-venv \
+        python3-wheel \
+        iputils-ping \
+        git \
+        curl \
+        openssh-client \
+        python3-cffi \
+        libcairo2 \
+        libmagic1 \
+        patch \
+        build-essential \
+        python3-dev \
+        libffi-dev \
+        libssl-dev \
+        cargo \
+        pkg-config \
+        libjpeg-dev \
+        zlib1g-dev \
+        libtiff6 \
+        libfreetype-dev \
+        libopenjp2-7 && \
+    rm -rf /var/lib/apt/lists/*
+
+# 新增：armv7 平台修复 ld-linux 链接问题
+RUN if [ "$TARGETARCH$TARGETVARIANT" = "armv7" ]; then \
+      ln -s /lib/arm-linux-gnueabihf/ld-linux-armhf.so.3 /lib/ld-linux.so.3 || true; \
+    fi
 
 ENV \
   # Fix click python3 lang warning https://click.palletsprojects.com/en/7.x/python3/
@@ -51,59 +64,33 @@ ENV \
   # Store globally installed pio libs in /piolibs
   PLATFORMIO_GLOBALLIB_DIR=/piolibs
 
+# 新增：设置 piwheels 镜像用于加速 armv7 架构的 pip 安装
+RUN if [ "$TARGETARCH$TARGETVARIANT" = "armv7" ]; then \
+      export PIP_EXTRA_INDEX_URL="https://www.piwheels.org/simple"; \
+    fi && \
+    pip3 install --break-system-packages --no-cache-dir platformio==6.1.18
+
+# 新增：platformio 设置
 RUN \
-    pip3 install \
-    --break-system-packages --no-cache-dir \
-    # Keep platformio version in sync with requirements.txt
-    platformio==6.1.18 \
-    # Change some platformio settings
-    && platformio settings set enable_telemetry No \
-    && platformio settings set check_platformio_interval 1000000 \
-    && mkdir -p /piolibs
+    platformio settings set enable_telemetry No && \
+    platformio settings set check_platformio_interval 1000000 && \
+    mkdir -p /piolibs
 
 
 # First install requirements to leverage caching when requirements don't change
 # tmpfs is for https://github.com/rust-lang/cargo/issues/8719
 
 COPY requirements.txt requirements_optional.txt /
-RUN --mount=type=tmpfs,target=/root/.cargo <<END-OF-RUN
-# Fail on any non-zero status
-set -e
-
-# install build tools in case wheels are not available
-BUILD_DEPS="
-    build-essential=12.9
-    python3-dev=3.11.2-1+b1
-    zlib1g-dev=1:1.2.13.dfsg-1
-    libjpeg-dev=1:2.1.5-2
-    libfreetype-dev=2.12.1+dfsg-5+deb12u4
-    libssl-dev=3.0.15-1~deb12u1
-    libffi-dev=3.4.4-1
-    cargo=0.66.0+ds1-1
-    pkg-config=1.8.1-1
-"
-LIB_DEPS="
-    libtiff6=4.5.0-6+deb12u1
-    libopenjp2-7=2.5.0-2+deb12u1
-"
-if [ "$TARGETARCH$TARGETVARIANT" = "arm64" ]
-then
-    apt-get update
-    apt-get install -y --no-install-recommends $BUILD_DEPS $LIB_DEPS
-fi
-
-CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse CARGO_HOME=/root/.cargo
-pip3 install --break-system-packages --no-cache-dir -r /requirements.txt -r /requirements_optional.txt
-
-if [ "$TARGETARCH$TARGETVARIANT" = "arm64" ]
-then
-    apt-get remove -y --purge --auto-remove $BUILD_DEPS
-    rm -rf /tmp/* /var/{cache,log}/* /var/lib/apt/lists/*
-fi
-END-OF-RUN
-
-
 COPY script/platformio_install_deps.py platformio.ini /
+
+# 安装 Python 依赖（优先使用 piwheels）
+RUN if [ "$TARGETARCH$TARGETVARIANT" = "armv7" ]; then \
+      export PIP_EXTRA_INDEX_URL="https://www.piwheels.org/simple"; \
+    fi && \
+    pip3 install --break-system-packages --no-cache-dir -r /requirements.txt -r /requirements_optional.txt
+
+
+
 RUN /platformio_install_deps.py /platformio.ini --libraries
 
 # Avoid unsafe git error when container user and file config volume permissions don't match
@@ -160,7 +147,7 @@ RUN \
     apt-get update \
     # Use pinned versions so that we get updates with build caching
     && apt-get install -y --no-install-recommends \
-        nginx-light=1.22.1-9+deb12u1 \
+        nginx-light \
     && rm -rf \
         /tmp/* \
         /var/{cache,log}/* \

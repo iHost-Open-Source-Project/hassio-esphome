@@ -13,7 +13,8 @@ CHANNELS = [CHANNEL_DEV, CHANNEL_BETA, CHANNEL_RELEASE]
 
 ARCH_AMD64 = "amd64"
 ARCH_AARCH64 = "aarch64"
-ARCHS = [ARCH_AMD64, ARCH_AARCH64]
+ARCH_ARMV7 = "armv7"
+ARCHS = [ARCH_AMD64, ARCH_ARMV7, ARCH_AARCH64]
 
 TYPE_DOCKER = "docker"
 TYPE_HA_ADDON = "ha-addon"
@@ -73,6 +74,7 @@ class DockerParams:
         }[build_type]
         platform = {
             ARCH_AMD64: "linux/amd64",
+            ARCH_ARMV7: "linux/arm/v7",
             ARCH_AARCH64: "linux/arm64",
         }[arch]
         target = {
@@ -151,7 +153,7 @@ def main():
             "--cache-from",
             f"type=registry,ref={cache_img}",
             "--file",
-            "docker/Dockerfile",
+            f"docker/Dockerfile.{args.arch}" if args.arch == "armv7" else "docker/Dockerfile",
             "--platform",
             params.platform,
             "--target",
