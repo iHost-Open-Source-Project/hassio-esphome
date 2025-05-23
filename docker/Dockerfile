@@ -28,10 +28,39 @@ COPY requirements.txt /
 #     uv pip install --no-cache-dir \
 #     -r /requirements.txt
 
+# 安装所有构建依赖，确保兼容 armv7/arm64/amd64 编译流程
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc build-essential python3-dev libffi-dev \
-    libjpeg-dev zlib1g-dev libfreetype-dev libtiff-dev libwebp-dev \
+    # Python 构建链
+    python3-pip \
+    python3-setuptools \
+    python3-venv \
+    python3-wheel \
+    python3-dev \
+    python3-cffi \
+    # C/C++ 编译工具链
+    gcc \
+    g++ \
+    make \
+    build-essential \
+    libffi-dev \
+    libssl-dev \
+    patch \
+    pkg-config \
+    # Rust 构建链
     cargo \
+    # 图形/图像依赖（Pillow 用于图标渲染）
+    libjpeg-dev \
+    zlib1g-dev \
+    libfreetype-dev \
+    libtiff-dev \
+    libopenjp2-7 \
+    libcairo2 \
+    libmagic1 \
+    # 网络与调试工具
+    iputils-ping \
+    curl \
+    git \
+    openssh-client \
     && rm -rf /var/lib/apt/lists/* && \
     uv pip install --no-cache-dir \
     -r /requirements.txt
