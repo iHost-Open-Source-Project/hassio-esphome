@@ -20,11 +20,11 @@ COPY requirements.txt /
 # RUN \
 #     uv pip install --no-cache-dir \
 #     -r /requirements.txt
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    build-essential \
-    python3-dev \
-    libffi-dev \
+    gcc build-essential python3-dev libffi-dev \
+    libjpeg-dev zlib1g-dev libfreetype-dev libtiff-dev libwebp-dev \
+    cargo \
     && rm -rf /var/lib/apt/lists/* && \
     uv pip install --no-cache-dir \
     -r /requirements.txt
