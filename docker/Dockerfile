@@ -15,6 +15,13 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 
 RUN pip install --no-cache-dir -U pip uv==0.6.14
 
+# 新增：设置 piwheels 镜像用于加速 armv7 架构的 pip 安装
+RUN if [ "$TARGETARCH$TARGETVARIANT" = "armv7" ]; then \
+      export PIP_EXTRA_INDEX_URL="https://www.piwheels.org/simple"; \
+    fi && \
+    pip3 install --break-system-packages --no-cache-dir platformio==6.1.18
+
+
 COPY requirements.txt /
 
 # RUN \
