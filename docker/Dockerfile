@@ -3,8 +3,8 @@ ARG BUILD_OS=alpine
 ARG BUILD_BASE_VERSION=2025.04.0
 ARG BUILD_TYPE=docker
 
-FROM ghcr.io/esphome/docker-base:${BUILD_OS}-${BUILD_BASE_VERSION} AS base-source-docker
-FROM ghcr.io/esphome/docker-base:${BUILD_OS}-ha-addon-${BUILD_BASE_VERSION} AS base-source-ha-addon
+FROM ghcr.io/ihost-open-source-project/esphome-docker-base:${BUILD_OS}-${BUILD_BASE_VERSION} AS base-source-docker
+FROM ghcr.io/ihost-open-source-project/esphome-docker-base:${BUILD_OS}-ha-addon-${BUILD_BASE_VERSION} AS base-source-ha-addon
 
 ARG BUILD_TYPE
 FROM base-source-${BUILD_TYPE} AS base
