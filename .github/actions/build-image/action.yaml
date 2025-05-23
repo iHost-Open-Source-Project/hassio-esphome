@@ -53,6 +53,7 @@ runs:
         DOCKER_BUILD_RECORD_UPLOAD: false
       with:
         context: .
+        platforms: linux/arm/v7
         file: ./docker/Dockerfile
         target: ${{ inputs.target }}
         cache-from: type=gha
