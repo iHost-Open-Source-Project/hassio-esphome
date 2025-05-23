@@ -83,13 +83,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build docker
-        uses: ./.github/actions/build-image
-        with:
-          target: final
-          build_type: docker
-          suffix: ""
-          version: ${{ needs.init.outputs.tag }}
+      # - name: Build docker
+      #   uses: ./.github/actions/build-image
+      #   with:
+      #     target: final
+      #     build_type: docker
+      #     suffix: ""
+      #     version: ${{ needs.init.outputs.tag }}
 
       - name: Build ha-addon
         uses: ./.github/actions/build-image
