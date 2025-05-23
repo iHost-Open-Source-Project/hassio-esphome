@@ -17,7 +17,15 @@ RUN pip install --no-cache-dir -U pip uv==0.6.14
 
 COPY requirements.txt /
 
-RUN \
+# RUN \
+#     uv pip install --no-cache-dir \
+#     -r /requirements.txt
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    build-essential \
+    python3-dev \
+    libffi-dev \
+    && rm -rf /var/lib/apt/lists/* && \
     uv pip install --no-cache-dir \
     -r /requirements.txt
 
