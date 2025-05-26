@@ -13,14 +13,6 @@ RUN git config --system --add safe.directory "*"
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 
-RUN pip install --no-cache-dir -U pip uv==0.6.14
-
-COPY requirements.txt /
-
-# RUN \
-#     uv pip install --no-cache-dir \
-#     -r /requirements.txt
-
 # 安装所有构建依赖，确保兼容 armv7/arm64/amd64 编译流程
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Python 构建链
@@ -67,10 +59,8 @@ RUN \
     && platformio settings set check_platformio_interval 1000000 \
     && mkdir -p /piolibs 
 
-
+COPY requirements.txt /
 COPY script/platformio_install_deps.py platformio.ini /
-RUN /platformio_install_deps.py /platformio.ini --libraries
-
 # 安装 Python 依赖（优先使用 piwheels）
 RUN if [ "$TARGETARCH$TARGETVARIANT" = "armv7" ]; then \
       export PIP_EXTRA_INDEX_URL="https://www.piwheels.org/simple"; \
@@ -78,6 +68,8 @@ RUN if [ "$TARGETARCH$TARGETVARIANT" = "armv7" ]; then \
     pip3 install --break-system-packages --no-cache-dir -r /requirements.txt
 
 ARG BUILD_VERSION
+
+RUN /platformio_install_deps.py /platformio.ini --libraries
 
 LABEL \
     org.opencontainers.image.authors="The ESPHome Authors" \
@@ -131,4 +123,4 @@ FROM base-${BUILD_TYPE} AS final
 
 # Copy esphome and install
 COPY . /esphome
-RUN uv pip install --no-cache-dir -e /esphome
+RUN pip3 install --break-system-packages --no-cache-dir -e /esphome
