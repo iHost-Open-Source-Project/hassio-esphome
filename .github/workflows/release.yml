@@ -94,7 +94,7 @@ jobs:
       - name: Build ha-addon
         uses: ./.github/actions/build-image
         with:
-          target: final
+          target: hassio
           build_type: ha-addon
           suffix: "hassio"
           version: ${{ needs.init.outputs.tag }}
