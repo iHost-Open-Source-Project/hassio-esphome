@@ -3,54 +3,115 @@ ARG BUILD_OS=alpine
 ARG BUILD_BASE_VERSION=2025.04.0
 ARG BUILD_TYPE=docker
 
-FROM ghcr.io/esphome/docker-base:${BUILD_OS}-${BUILD_BASE_VERSION} AS base-source-docker
-FROM ghcr.io/esphome/docker-base:${BUILD_OS}-ha-addon-${BUILD_BASE_VERSION} AS base-source-ha-addon
 
-ARG BUILD_TYPE
-FROM base-source-${BUILD_TYPE} AS base
+# https://github.com/hassio-addons/addon-debian-base/releases
+FROM ghcr.io/hassio-addons/debian-base:7.2.0 AS base-ha-addon
+# https://hub.docker.com/_/debian?tab=tags&page=1&name=bookworm
+FROM debian:12.2-slim AS base-docker
 
-RUN git config --system --add safe.directory "*"
+FROM base-${BUILD_TYPE} AS base
 
-ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 
-RUN pip install --no-cache-dir -U pip uv==0.6.14
+ARG TARGETARCH
+ARG TARGETVARIANT
+
+
+# Note that --break-system-packages is used below because
+# https://peps.python.org/pep-0668/ added a safety check that prevents
+# installing packages with the same name as a system package. This is
+# not a problem for us because we are not concerned about overwriting
+# system packages because we are running in an isolated container.
+
+# 安装构建依赖
+RUN \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3-pip \
+        python3-setuptools \
+        python3-venv \
+        python3-wheel \
+        iputils-ping \
+        git \
+        curl \
+        openssh-client \
+        python3-cffi \
+        libcairo2 \
+        libmagic1 \
+        patch \
+        build-essential \
+        python3-dev \
+        libffi-dev \
+        libssl-dev \
+        cargo \
+        pkg-config \
+        libjpeg-dev \
+        zlib1g-dev \
+        libtiff6 \
+        libfreetype-dev \
+        libopenjp2-7 && \
+    rm -rf /var/lib/apt/lists/*
+
+
+# 新增：armv7 平台修复 ld-linux 链接问题
+RUN if [ "$TARGETARCH$TARGETVARIANT" = "armv7" ]; then \
+      ln -s /lib/arm-linux-gnueabihf/ld-linux-armhf.so.3 /lib/ld-linux.so.3 || true; \
+    fi
+
+ENV \
+  # Fix click python3 lang warning https://click.palletsprojects.com/en/7.x/python3/
+  LANG=C.UTF-8 LC_ALL=C.UTF-8 \
+  # Store globally installed pio libs in /piolibs
+  PLATFORMIO_GLOBALLIB_DIR=/piolibs
+
+# 新增：设置 piwheels 镜像用于加速 armv7 架构的 pip 安装
+RUN if [ "$TARGETARCH$TARGETVARIANT" = "armv7" ]; then \
+      export PIP_EXTRA_INDEX_URL="https://www.piwheels.org/simple"; \
+    fi && \
+    pip3 install --break-system-packages --no-cache-dir platformio==6.1.18
+
+# 新增：platformio 设置
+RUN \
+    platformio settings set enable_telemetry No && \
+    platformio settings set check_platformio_interval 1000000 && \
+    mkdir -p /piolibs
+
+
+# First install requirements to leverage caching when requirements don't change
+# tmpfs is for https://github.com/rust-lang/cargo/issues/8719
 
 COPY requirements.txt /
-
-RUN \
-    uv pip install --no-cache-dir \
-    -r /requirements.txt
-
-RUN \
-    platformio settings set enable_telemetry No \
-    && platformio settings set check_platformio_interval 1000000 \
-    && mkdir -p /piolibs
-
 COPY script/platformio_install_deps.py platformio.ini /
+
+# 安装 Python 依赖（优先使用 piwheels）
+RUN if [ "$TARGETARCH$TARGETVARIANT" = "armv7" ]; then \
+      export PIP_EXTRA_INDEX_URL="https://www.piwheels.org/simple"; \
+    fi && \
+    pip3 install --break-system-packages --no-cache-dir -r /requirements.txt
+
+
+
 RUN /platformio_install_deps.py /platformio.ini --libraries
 
-ARG BUILD_VERSION
-
-LABEL \
-    org.opencontainers.image.authors="The ESPHome Authors" \
-    org.opencontainers.image.title="ESPHome" \
-    org.opencontainers.image.description="ESPHome is a system to configure your microcontrollers by simple yet powerful configuration files and control them remotely through Home Automation systems" \
-    org.opencontainers.image.url="https://esphome.io/" \
-    org.opencontainers.image.documentation="https://esphome.io/" \
-    org.opencontainers.image.source="https://github.com/esphome/esphome" \
-    org.opencontainers.image.licenses="ESPHome" \
-    org.opencontainers.image.version=${BUILD_VERSION}
+# Avoid unsafe git error when container user and file config volume permissions don't match
+RUN git config --system --add safe.directory '*'
 
 
 # ======================= docker-type image =======================
-FROM base AS base-docker
+FROM base AS docker
+
+# Copy esphome and install
+COPY . /esphome
+RUN pip3 install --break-system-packages --no-cache-dir -e /esphome
+
+# Settings for dashboard
+ENV USERNAME="" PASSWORD=""
 
 # Expose the dashboard to Docker
 EXPOSE 6052
 
 # Run healthcheck (heartbeat)
 HEALTHCHECK --interval=30s --timeout=30s \
-    CMD curl --fail http://localhost:6052/version -A "HealthCheck" || exit 1
+  CMD curl --fail http://localhost:6052/version -A "HealthCheck" || exit 1
 
 COPY docker/docker_entrypoint.sh /entrypoint.sh
 
@@ -64,13 +125,43 @@ ENTRYPOINT ["/entrypoint.sh"]
 CMD ["dashboard", "/config"]
 
 
-# ======================= ha-addon-type image =======================
-FROM base AS base-ha-addon
+ARG BUILD_VERSION=dev
+
+# Labels
+LABEL \
+    org.opencontainers.image.authors="The ESPHome Authors" \
+    org.opencontainers.image.title="ESPHome" \
+    org.opencontainers.image.description="ESPHome is a system to configure your microcontrollers by simple yet powerful configuration files and control them remotely through Home Automation systems" \
+    org.opencontainers.image.url="https://esphome.io/" \
+    org.opencontainers.image.documentation="https://esphome.io/" \
+    org.opencontainers.image.source="https://github.com/esphome/esphome" \
+    org.opencontainers.image.licenses="ESPHome" \
+    org.opencontainers.image.version=${BUILD_VERSION}
+
+
+# ======================= hassio-type image =======================
+FROM base AS hassio
+
+RUN \
+    apt-get update \
+    # Use pinned versions so that we get updates with build caching
+    && apt-get install -y --no-install-recommends \
+        nginx-light \
+    && rm -rf \
+        /tmp/* \
+        /var/{cache,log}/* \
+        /var/lib/apt/lists/*
+
+ARG BUILD_VERSION=dev
 
 # Copy root filesystem
 COPY docker/ha-addon-rootfs/ /
 
-ARG BUILD_VERSION
+# Copy esphome and install
+COPY . /esphome
+RUN pip3 install --break-system-packages --no-cache-dir -e /esphome
+
+# Labels
 LABEL \
     io.hass.name="ESPHome" \
     io.hass.description="ESPHome is a system to configure your microcontrollers by simple yet powerful configuration files and control them remotely through Home Automation systems" \
@@ -78,9 +169,35 @@ LABEL \
     io.hass.version="${BUILD_VERSION}"
     # io.hass.arch is inherited from addon-debian-base
 
-ARG BUILD_TYPE
-FROM base-${BUILD_TYPE} AS final
 
-# Copy esphome and install
-COPY . /esphome
-RUN uv pip install --no-cache-dir -e /esphome
+
+
+# ======================= lint-type image =======================
+# FROM base AS lint
+
+# ENV \
+#   PLATFORMIO_CORE_DIR=/esphome/.temp/platformio
+
+# RUN \
+#     curl -L https://apt.llvm.org/llvm-snapshot.gpg.key -o /etc/apt/trusted.gpg.d/apt.llvm.org.asc \
+#     && echo "deb http://apt.llvm.org/bookworm/ llvm-toolchain-bookworm-18 main" > /etc/apt/sources.list.d/llvm.sources.list \
+#     && apt-get update \
+#     # Use pinned versions so that we get updates with build caching
+#     && apt-get install -y --no-install-recommends \
+#         clang-format-13=1:13.0.1-11+b2 \
+#         patch=2.7.6-7 \
+#         software-properties-common=0.99.30-4.1~deb12u1 \
+#         nano=7.2-1+deb12u1 \
+#         build-essential=12.9 \
+#         python3-dev=3.11.2-1+b1 \
+#         clang-tidy-18=1:18.1.8~++20240731024826+3b5b5c1ec4a3-1~exp1~20240731144843.145 \
+#     && rm -rf \
+#         /tmp/* \
+#         /var/{cache,log}/* \
+#         /var/lib/apt/lists/*
+
+# COPY requirements_test.txt /
+# RUN pip3 install --break-system-packages --no-cache-dir -r /requirements_test.txt
+
+# VOLUME ["/esphome"]
+# WORKDIR /esphome
