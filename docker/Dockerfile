@@ -68,7 +68,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN \
     platformio settings set enable_telemetry No \
     && platformio settings set check_platformio_interval 1000000 \
-    && mkdir -p /piolibs
+    && mkdir -p /piolibs \
+    && platformio platform install espressif32 \
+    && platformio platform install espressif8266
+
 
 COPY script/platformio_install_deps.py platformio.ini /
 RUN /platformio_install_deps.py /platformio.ini --libraries
