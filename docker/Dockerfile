@@ -79,14 +79,14 @@ RUN \
 # First install requirements to leverage caching when requirements don't change
 # tmpfs is for https://github.com/rust-lang/cargo/issues/8719
 
-COPY requirements.txt requirements_optional.txt /
+COPY requirements.txt /
 COPY script/platformio_install_deps.py platformio.ini /
 
 # 安装 Python 依赖（优先使用 piwheels）
 RUN if [ "$TARGETARCH$TARGETVARIANT" = "armv7" ]; then \
       export PIP_EXTRA_INDEX_URL="https://www.piwheels.org/simple"; \
     fi && \
-    pip3 install --break-system-packages --no-cache-dir -r /requirements.txt -r /requirements_optional.txt
+    pip3 install --break-system-packages --no-cache-dir -r /requirements.txt
 
 
 
