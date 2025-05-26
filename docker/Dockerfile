@@ -61,20 +61,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     openssh-client \
-    && rm -rf /var/lib/apt/lists/* && \
-    uv pip install --no-cache-dir \
-    -r /requirements.txt
+    && rm -rf /var/lib/apt/lists/*
+
+# 新增：设置 piwheels 镜像用于加速 armv7 架构的 pip 安装
+RUN if [ "$TARGETARCH$TARGETVARIANT" = "armv7" ]; then \
+      export PIP_EXTRA_INDEX_URL="https://www.piwheels.org/simple"; \
+    fi && \
+    pip3 install --break-system-packages --no-cache-dir platformio==6.1.18
 
 RUN \
     platformio settings set enable_telemetry No \
     && platformio settings set check_platformio_interval 1000000 \
-    && mkdir -p /piolibs \
-    && platformio platform install espressif32 \
-    && platformio platform install espressif8266
+    && mkdir -p /piolibs 
 
 
 COPY script/platformio_install_deps.py platformio.ini /
 RUN /platformio_install_deps.py /platformio.ini --libraries
+
+# 安装 Python 依赖（优先使用 piwheels）
+RUN if [ "$TARGETARCH$TARGETVARIANT" = "armv7" ]; then \
+      export PIP_EXTRA_INDEX_URL="https://www.piwheels.org/simple"; \
+    fi && \
+    pip3 install --break-system-packages --no-cache-dir -r /requirements.txt -r /requirements_optional.txt
 
 ARG BUILD_VERSION
 
