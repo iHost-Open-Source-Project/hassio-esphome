@@ -1,9 +1,7 @@
-# Build these with the build.py script
-# Example:
-#   python3 docker/build.py --tag dev --arch amd64 --build-type docker build
-
-# One of "docker", "hassio"
-ARG BASEIMGTYPE=docker
+ARG BUILD_VERSION=dev
+ARG BUILD_OS=alpine
+ARG BUILD_BASE_VERSION=2025.04.0
+ARG BUILD_TYPE=docker
 
 
 # https://github.com/hassio-addons/addon-debian-base/releases
@@ -11,7 +9,7 @@ FROM ghcr.io/hassio-addons/debian-base:7.8.3 AS base-hassio
 # https://hub.docker.com/_/debian?tab=tags&page=1&name=bookworm
 FROM debian:12.2-slim AS base-docker
 
-FROM base-${BASEIMGTYPE} AS base
+FROM base-${BUILD_TYPE} AS base
 
 
 ARG TARGETARCH
