@@ -82,7 +82,7 @@ RUN /platformio_install_deps.py /platformio.ini --libraries
 RUN if [ "$TARGETARCH$TARGETVARIANT" = "armv7" ]; then \
       export PIP_EXTRA_INDEX_URL="https://www.piwheels.org/simple"; \
     fi && \
-    pip3 install --break-system-packages --no-cache-dir -r /requirements.txt -r /requirements_optional.txt
+    pip3 install --break-system-packages --no-cache-dir -r /requirements.txt
 
 ARG BUILD_VERSION
 
