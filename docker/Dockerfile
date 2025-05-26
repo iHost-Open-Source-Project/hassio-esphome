@@ -7,7 +7,7 @@ ARG BASEIMGTYPE=docker
 
 
 # https://github.com/hassio-addons/addon-debian-base/releases
-FROM ghcr.io/hassio-addons/debian-base:7.2.0 AS base-hassio
+FROM ghcr.io/hassio-addons/debian-base:7.8.3 AS base-hassio
 # https://hub.docker.com/_/debian?tab=tags&page=1&name=bookworm
 FROM debian:12.2-slim AS base-docker
 
