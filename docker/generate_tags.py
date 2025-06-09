@@ -64,7 +64,8 @@ def main():
 
     suffix = f"-{args.suffix}" if args.suffix else ""
 
-    image_name = f"esphome/esphome{suffix}"
+    # image_name = f"esphome/esphome{suffix}"
+    image_name = f"ihost-open-source-project/esphome{suffix}"
 
     print(f"channel={channel}")
 
